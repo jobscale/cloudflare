@@ -1,8 +1,8 @@
 {
   "private": true,
-  "name": "sakura-dns",
-  "version": "0.0.8",
-  "description": "sakura-dns",
+  "name": "cloudflare-dns",
+  "version": "0.0.1",
+  "description": "cloudflare-dns",
   "author": "jobscale <jobscale@users.noreply.github.com>",
   "license": "MIT",
   "type": "module",
@@ -15,7 +15,9 @@
   },
   "pre-commit": "test",
   "dependencies": {
-    "@jobscale/create-logger": "^1.0.5"
+    "@jobscale/create-logger": "^1.0.5",
+    "@jobscale/timestamp": "^0.0.8",
+    "cloudflare": "^7.3.0"
   },
   "devDependencies": {
     "@jobscale/eslint-plugin-standard": "^0.1.4",
