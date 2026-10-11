@@ -1,18 +1,19 @@
 import CloudflareSDK from 'cloudflare';
 import { createLogger } from '@jobscale/create-logger';
 
-const { LOG_LEVEL, CF_AT_TOKEN } = process.env;
+const { LOG_LEVEL } = process.env;
 
 const logger = createLogger({ level: LOG_LEVEL });
 
 export class Cloudflare {
   constructor() {
-    if (!CF_AT_TOKEN) {
-      const e = new Error('CF_AT_TOKEN required');
+    const { env } = process;
+    if (!env.CF_AT_TOKEN) {
+      const e = new Error('CF_AT_TOKEN required', { cause: new Error('miss match environment') });
       logger.error(e.cause?.message ?? e.cause ?? e.message);
       throw e;
     }
-    this.client = new CloudflareSDK({ apiToken: CF_AT_TOKEN });
+    this.client = new CloudflareSDK({ apiToken: env.CF_AT_TOKEN });
     this.zoneCache = new Map();
   }
 

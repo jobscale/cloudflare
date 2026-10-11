@@ -4,6 +4,7 @@ import { createLogger } from '@jobscale/create-logger';
 import { formatTimestamp } from '@jobscale/timestamp';
 import { Cloudflare as sdk } from './cloudflare/index.js';
 import { Cloudflare as api } from './cloudflare/api.js';
+import { decode } from './js-proxy.js';
 
 const { LOG_LEVEL, USE_SDK } = process.env;
 
@@ -91,8 +92,16 @@ const usage = (env = process.env) => {
   process.exit(1);
 };
 
+const authorization = async (env = process.env) => {
+  if (env.DNS_CONFIG) {
+    const decoded = await decode(env.DNS_CONFIG);
+    Object.assign(env, { ...JSON.parse(decoded) });
+  }
+};
+
 const main = async (env = process.env) => {
   logger.info(formatTimestamp({ tz: env.TZ }));
+  await authorization();
   const { positional: [cmd, zone, ...args], opts } = parseArgs(process.argv.slice(2));
   if (!cmd || cmd === 'help' || opts.help) usage();
   const cf = new Cloudflare();
