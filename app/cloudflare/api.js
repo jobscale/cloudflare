@@ -38,7 +38,6 @@ export class Cloudflare {
     return json;
   }
 
-  // ページングを辿って全件取得する
   async paginate(uri, query = {}) {
     const items = [];
     for (let page = 1; ; page++) {
@@ -88,7 +87,6 @@ export class Cloudflare {
     return result;
   }
 
-  // 同じ type + name のレコードがあれば更新、無ければ作成する
   async upsert(zone, record) {
     const [existing] = await this.list(zone, { type: record.type, name: record.name });
     return existing ? this.update(zone, existing.id, record) : this.create(zone, record);
