@@ -60,29 +60,29 @@ const usage = (env = process.env) => {
   const japanese = /^ja_JP(?:[.@]|$)/i.test(locale);
   const lines = japanese ? [
     '使い方:',
-    '  app/cli.js zones',
-    '  app/cli.js list   <zone> [--type A] [--name www.example.com]',
-    '  app/cli.js get    <zone> <recordId>',
-    '  app/cli.js create <zone> <type> <name> <content> [--ttl 1] [--proxied] [--priority 10] [--comment text]',
-    '  app/cli.js update <zone> <recordId> [--type A] [--name x] [--content y] [--ttl 1] [--proxied|--no-proxied] [--comment text]',
-    '  app/cli.js upsert <zone> <type> <name> <content> [--ttl 1] [--proxied] [--priority 10] [--comment text]',
-    '  app/cli.js delete <zone> <recordId>',
-    '  app/cli.js delete <zone> <type> <name> [--content y]',
-    '  app/cli.js export <zone>                     BIND 形式でエクスポート',
+    '  app/index.js zones',
+    '  app/index.js list   <zone> [--type A] [--name www.example.com]',
+    '  app/index.js get    <zone> <recordId>',
+    '  app/index.js create <zone> <type> <name> <content> [--ttl 1] [--proxied] [--priority 10] [--comment text]',
+    '  app/index.js update <zone> <recordId> [--type A] [--name x] [--content y] [--ttl 1] [--proxied|--no-proxied] [--comment text]',
+    '  app/index.js upsert <zone> <type> <name> <content> [--ttl 1] [--proxied] [--priority 10] [--comment text]',
+    '  app/index.js delete <zone> <recordId>',
+    '  app/index.js delete <zone> <type> <name> [--content y] [--max 1]',
+    '  app/index.js export <zone>                     BIND 形式でエクスポート',
     '',
     '<zone> はゾーン名 (example.com) またはゾーン ID のどちらでも指定可能。',
     '<name> に "@" を指定するとゾーン名になり、"www" のような相対名は自動で FQDN に補完される。',
   ] : [
     'Usage:',
-    '  app/cli.js zones',
-    '  app/cli.js list   <zone> [--type A] [--name www.example.com]',
-    '  app/cli.js get    <zone> <recordId>',
-    '  app/cli.js create <zone> <type> <name> <content> [--ttl 1] [--proxied] [--priority 10] [--comment text]',
-    '  app/cli.js update <zone> <recordId> [--type A] [--name x] [--content y] [--ttl 1] [--proxied|--no-proxied] [--comment text]',
-    '  app/cli.js upsert <zone> <type> <name> <content> [--ttl 1] [--proxied] [--priority 10] [--comment text]',
-    '  app/cli.js delete <zone> <recordId>',
-    '  app/cli.js delete <zone> <type> <name> [--content y]',
-    '  app/cli.js export <zone>                     Export in BIND format',
+    '  app/index.js zones',
+    '  app/index.js list   <zone> [--type A] [--name www.example.com]',
+    '  app/index.js get    <zone> <recordId>',
+    '  app/index.js create <zone> <type> <name> <content> [--ttl 1] [--proxied] [--priority 10] [--comment text]',
+    '  app/index.js update <zone> <recordId> [--type A] [--name x] [--content y] [--ttl 1] [--proxied|--no-proxied] [--comment text]',
+    '  app/index.js upsert <zone> <type> <name> <content> [--ttl 1] [--proxied] [--priority 10] [--comment text]',
+    '  app/index.js delete <zone> <recordId>',
+    '  app/index.js delete <zone> <type> <name> [--content y] [--max 1]',
+    '  app/index.js export <zone>                     Export in BIND format',
     '',
     '<zone> can be either a zone name (example.com) or a zone ID.',
     'Use "@" for the zone apex; relative names such as "www" are automatically expanded to an FQDN.',
@@ -129,16 +129,24 @@ const main = async (env = process.env) => {
   }
   case 'delete': {
     if (args.length === 1) return out(await cf.delete(zone, args[0]));
-    if (args.length !== 2 || opts.content !== undefined && typeof opts.content !== 'string') usage();
+    if (args.length !== 2
+      || opts.content !== undefined && typeof opts.content !== 'string'
+      || opts.max !== undefined && !/^[1-9]\d*$/.test(String(opts.max))) usage();
     const [type, name] = args;
+    const max = opts.max === undefined ? 1 : Number.parseInt(opts.max, 10);
+    if (!Number.isSafeInteger(max)) usage();
     const fqdnName = fqdn(name, zoneName);
     let records = await cf.list(zone, { type: type.toUpperCase(), name: fqdnName });
     if (opts.content !== undefined) records = records.filter(record => record.content === opts.content);
     if (records.length === 0) throw new Error(`record not found: ${type.toUpperCase()} ${fqdnName}`);
-    if (records.length > 1) {
-      throw new Error(`multiple records found: ${type.toUpperCase()} ${fqdnName}; specify --content to narrow the match`);
+    if (records.length > max) {
+      return logger.warn(`Warning: found ${records.length} matching records, exceeding --max ${max}; no records were deleted.`);
     }
-    return out(await cf.delete(zone, records[0].id));
+    const deleted = [];
+    for (const record of records) {
+      deleted.push(await cf.delete(zone, record.id));
+    }
+    return out(deleted);
   }
   case 'export':
     return process.stdout.write(await cf.export(zone));
@@ -148,6 +156,7 @@ const main = async (env = process.env) => {
 };
 
 main().catch(e => {
-  logger.error(e.message);
+  logger.info({ error: e.cause?.message ?? e.cause ?? e.message });
+  logger.error(e.cause?.message ?? e.cause ?? e.message);
   process.exit(1);
 });
