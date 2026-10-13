@@ -99,6 +99,22 @@ const authorization = async (env = process.env) => {
   }
 };
 
+const outJson = data => {
+  const tiny = [data].flat().sort((a, b) => {
+    const aName = a.name.split('.').reverse().join('.');
+    const bName = b.name.split('.').reverse().join('.');
+    if (aName < bName) return -1;
+    if (aName > bName) return 1;
+    if (a.type < b.type) return -1;
+    if (a.type > b.type) return 1;
+    return 0;
+  }).map(item => {
+    const { name, type, content, ttl, proxied } = item;
+    return { name, type, content, ttl, proxied };
+  });
+  logger.info(JSON.stringify(tiny, null, 2));
+};
+
 const main = async (env = process.env) => {
   logger.info(formatTimestamp({ tz: env.TZ }));
   await authorization();
@@ -106,11 +122,10 @@ const main = async (env = process.env) => {
   if (!cmd || cmd === 'help' || opts.help) usage();
   const cf = new Cloudflare();
   const json = opts.json === true;
-  const out = data => logger.log(JSON.stringify(data, null, 2));
 
   if (cmd === 'zones') {
     const zones = await cf.zones();
-    if (json) return out(zones);
+    if (json) return outJson(zones);
     return logger.table(zones.map(z => ({ id: z.id, name: z.name, status: z.status })));
   }
   if (!zone) usage();
@@ -119,25 +134,25 @@ const main = async (env = process.env) => {
   switch (cmd) {
   case 'list': {
     const records = await cf.list(zone, { type: opts.type?.toUpperCase(), name: fqdn(opts.name, zoneName) });
-    return json ? out(records) : printRecords(records);
+    return json ? outJson(records) : printRecords(records);
   }
   case 'get':
     if (!args[0]) usage();
-    return out(await cf.get(zone, args[0]));
+    return outJson(await cf.get(zone, args[0]));
   case 'create':
   case 'upsert': {
     const [type, name, content] = args;
     if (!type || !name || !content) usage();
     const record = buildRecord({ type, name, content }, { ...opts }, zoneName);
-    return out(await cf[cmd](zone, record));
+    return outJson(await cf[cmd](zone, record));
   }
   case 'update': {
     if (!args[0]) usage();
     const record = buildRecord(opts, opts, zoneName);
-    return out(await cf.update(zone, args[0], record));
+    return outJson(await cf.update(zone, args[0], record));
   }
   case 'delete': {
-    if (args.length === 1) return out(await cf.delete(zone, args[0]));
+    if (args.length === 1) return outJson(await cf.delete(zone, args[0]));
     if (args.length !== 2
       || opts.content !== undefined && typeof opts.content !== 'string'
       || opts.max !== undefined && !/^[1-9]\d*$/.test(String(opts.max))) usage();
@@ -155,7 +170,7 @@ const main = async (env = process.env) => {
     for (const record of records) {
       deleted.push(await cf.delete(zone, record.id));
     }
-    return out(deleted);
+    return outJson(deleted);
   }
   case 'export':
     return process.stdout.write(await cf.export(zone));
