@@ -1,33 +1,21 @@
-## sakura-dns dynamic DNS
+## cloudflare dynamic DNS
 
 ## run with container
 ```
-git clone https://github.com/jobscale/sakura-dns.git
-cd sakura-dns
-```
-
-## setup and test
-```bash
-echo "module.exports = {
-  domain: 'example.com',
-  token: 'secret',
-  hosts: ['@', '*'],
-};" > app/.env.js
-npm i
-npm run lint --if-present
-npm start
+git clone https://github.com/jobscale/cloudflare.git
+cd cloudflare
 ```
 
 ## build and run
 ```
 main() {
-  docker build . -t local/sakura-dns
-  docker run --rm -it local/sakura-dns
+  docker build . -t local/cloudflare
+  docker run --rm -it local/cloudflare
 } && main
 ```
 
 ### create cronjob
 ```
-kubectl create cronjob sakura-dns --image local/sakura-dns --schedule '0/7 * * * *'
-kubectl create job --from=cronjob/sakura-dns sakura-dns-manual-$(date +'%Y%m%d-%H%M')
+kubectl create cronjob cloudflare --image local/cloudflare --schedule '0/7 * * * *'
+kubectl create job --from=cronjob/cloudflare cloudflare-manual-$(date +'%Y%m%d-%H%M')
 ```
